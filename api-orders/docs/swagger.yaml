@@ -1,0 +1,263 @@
+definitions:
+  dto.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  dto.LoginResponse:
+    properties:
+      accessToken:
+        type: string
+      refreshToken:
+        type: string
+    type: object
+  dto.OrderRequest:
+    type: object
+  dto.OrderResponse:
+    properties:
+      _id:
+        type: string
+      state:
+        $ref: '#/definitions/enum.EOrderState'
+      userId:
+        type: string
+    type: object
+  dto.ProfileResponse:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+    type: object
+  dto.RefreshTokenRequest:
+    properties:
+      refreshToken:
+        type: string
+    required:
+    - refreshToken
+    type: object
+  dto.RefreshTokenResponse:
+    properties:
+      accessToken:
+        type: string
+      refreshToken:
+        type: string
+    type: object
+  dto.SignupRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  dto.SignupResponse:
+    properties:
+      accessToken:
+        type: string
+      refreshToken:
+        type: string
+    type: object
+  enum.EOrderState:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    type: integer
+    x-enum-varnames:
+    - Created
+    - Confirmed
+    - Delivered
+    - Cancelled
+info:
+  contact: {}
+  description: This is a sample server test.
+  title: Sotatek Test Api Orders
+  version: 0.0.1
+paths:
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Login into system
+      parameters:
+      - description: Login into system
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/dto.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.LoginResponse'
+      summary: Login router
+      tags:
+      - Auth
+  /orders:
+    get:
+      consumes:
+      - application/json
+      description: Get list orders of user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.OrderResponse'
+      security:
+      - BearerAuth: []
+      summary: Get list orders router
+      tags:
+      - Orders
+    post:
+      consumes:
+      - application/json
+      description: Create new order
+      parameters:
+      - description: Create new order
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/dto.OrderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.OrderResponse'
+      security:
+      - BearerAuth: []
+      summary: Create order router
+      tags:
+      - Orders
+  /orders/{orderId}:
+    get:
+      consumes:
+      - application/json
+      description: Get detail order
+      parameters:
+      - description: Order Id
+        in: path
+        name: orderId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.OrderResponse'
+      security:
+      - BearerAuth: []
+      summary: Get detail order router
+      tags:
+      - Orders
+  /orders/{orderId}/cancel:
+    put:
+      consumes:
+      - application/json
+      description: Cancel order
+      parameters:
+      - description: Order Id
+        in: path
+        name: orderId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/dto.OrderResponse'
+      security:
+      - BearerAuth: []
+      summary: Cancel order router
+      tags:
+      - Orders
+  /refresh-token:
+    post:
+      consumes:
+      - application/json
+      description: Refresh new token
+      parameters:
+      - description: Refresh new token
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/dto.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.RefreshTokenResponse'
+      summary: Refresh token router
+      tags:
+      - Auth
+  /signup:
+    post:
+      consumes:
+      - application/json
+      description: Signup new account
+      parameters:
+      - description: Signup new account
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/dto.SignupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.SignupResponse'
+      summary: Signup router
+      tags:
+      - Auth
+  /users/profile:
+    get:
+      consumes:
+      - application/json
+      description: Get profile detail by ID
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/dto.ProfileResponse'
+      security:
+      - BearerAuth: []
+      summary: Get profile detail router
+      tags:
+      - Users
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+option go_package = "api-orders/internal/grpc-gateway/protogen/golang";
+
+message PaymentRequest {
+  string orderId = 1 [ json_name = "_id" ];
+  string userId = 3 [ json_name = "userId" ];
+}
+
+message PaymentResponse {
+  bool isSuccess = 1;
+}
+
+service Payment {
+  rpc PaymentProcess(PaymentRequest) returns (PaymentResponse) {}
+}
