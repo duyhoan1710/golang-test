@@ -1,47 +1,43 @@
 package service
 
 import (
-	"net/http"
+	"context"
 	"time"
-
-	"github.com/gin-gonic/gin"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"api-orders/config"
-	"api-orders/internal/dto"
-	enum "api-orders/internal/enum"
-	grpc_internal "api-orders/internal/grpc-gateway/grpc-internal"
-	model "api-orders/internal/model"
-	"api-orders/internal/repository"
+	"api-orders/internal/enum"
+	"api-orders/internal/exception"
+	grpcClient "api-orders/internal/grpc/grpc-internal"
+	"api-orders/internal/model"
+
+	repositoryInterface "api-orders/internal/interface/repository"
+	serviceInterface "api-orders/internal/interface/service"
 )
 
-type OrderService struct {
-	UserService     *UserService
-	OrderRepository *repository.OrderRepository
-	Env             *config.Env
+type orderService struct {
+	UserService       serviceInterface.IUserService
+	OrderRepository   repositoryInterface.IOrderRepository
+	PaymentGRPCClient grpcClient.IPaymentGRPCClient
 }
 
-func (orderService *OrderService) ChangeOrderToDelivered(c *gin.Context, order *model.Order) error {
-	order.State = int(enum.Delivered)
-
-	err := orderService.OrderRepository.UpdateOne(c, order.Id.String(), order)
-
-	return err
+func NewOrderService(userService serviceInterface.IUserService, orderRepository repositoryInterface.IOrderRepository, paymentGRPCClient grpcClient.IPaymentGRPCClient) serviceInterface.IOrderService {
+	return &orderService{
+		UserService:       userService,
+		OrderRepository:   orderRepository,
+		PaymentGRPCClient: paymentGRPCClient,
+	}
 }
 
-func (orderService *OrderService) CreateOrder(c *gin.Context, userId string) {
+func (orderService *orderService) CreateOrder(c context.Context, userId string) (customError exception.ICustomError) {
 	orders, err := orderService.OrderRepository.FindByUserId(c, userId)
-
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		return exception.NewCustomError(exception.INTERNAL_SERVER_ERROR, err.Error())
 	}
 
 	for _, order := range orders {
 		if order.State == int(enum.Created) || order.State == int(enum.Confirmed) {
-			c.JSON(http.StatusBadRequest, dto.ErrorResponse{Message: "Finish previous order first"})
-			return
+			return exception.NewCustomError(exception.LAST_ORDER_NOT_FINISH)
 		}
 	}
 
@@ -53,82 +49,63 @@ func (orderService *OrderService) CreateOrder(c *gin.Context, userId string) {
 
 	err = orderService.OrderRepository.Create(c, &order)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		return exception.NewCustomError(exception.INTERNAL_SERVER_ERROR, err.Error())
 	}
 
-	isSuccess := grpc_internal.ProcessPayment(orderService.Env, order.Id.String(), order.UserId)
+	isSuccess := orderService.PaymentGRPCClient.ProcessPayment(order.Id.Hex(), order.UserId)
 
 	if isSuccess {
 		order.State = int(enum.Confirmed)
-		orderService.OrderRepository.UpdateOne(c, order.Id.String(), &order)
+		orderService.OrderRepository.UpdateOne(c, order.Id.Hex(), &order)
 
 		time.AfterFunc(30*time.Second, func() {
 			order.State = int(enum.Delivered)
-			orderService.OrderRepository.UpdateOne(c, order.Id.String(), &order)
+			orderService.OrderRepository.UpdateOne(c, order.Id.Hex(), &order)
 		})
 	} else {
 		order.State = int(enum.Cancelled)
-		orderService.OrderRepository.UpdateOne(c, order.Id.String(), &order)
+		orderService.OrderRepository.UpdateOne(c, order.Id.Hex(), &order)
 	}
+
+	return customError
 }
 
-func (orderService *OrderService) CancelOrder(c *gin.Context, userId string, orderId string) {
+func (orderService *orderService) CancelOrder(c context.Context, userId string, orderId string) (customError exception.ICustomError) {
 	var err error = nil
 
 	order, err := orderService.OrderRepository.FindById(c, orderId)
-
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		return exception.NewCustomError(exception.INTERNAL_SERVER_ERROR, err.Error())
 	}
 
 	if order.State == int(enum.Cancelled) || order.State == int(enum.Delivered) {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Message: "Cannot cancel this order"})
-		return
+		return exception.NewCustomError(exception.CANNOT_CANNEL_ORDER)
 	}
 
 	order.State = int(enum.Cancelled)
 
 	err = orderService.OrderRepository.UpdateOne(c, orderId, &order)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		return exception.NewCustomError(exception.INTERNAL_SERVER_ERROR, err.Error())
 	}
+
+	return customError
 }
 
-func (orderService *OrderService) FindOrderById(c *gin.Context, userId string, orderId string) (order model.Order) {
-	var err error = nil
-
-	_, isExist := orderService.UserService.FindProfileById(c, userId)
-	if !isExist {
-		c.JSON(http.StatusNotFound, dto.ErrorResponse{Message: "User not found with the given id"})
-		return
-	}
-
-	order, err = orderService.OrderRepository.FindById(c, orderId)
+func (orderService *orderService) FindOrderById(c context.Context, userId string, orderId string) (order model.Order, customError exception.ICustomError) {
+	order, err := orderService.OrderRepository.FindById(c, orderId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		return order, exception.NewCustomError(exception.INTERNAL_SERVER_ERROR, err.Error())
 	}
 
-	return order
+	return order, customError
 }
 
-func (orderService *OrderService) ListOrders(c *gin.Context, userId string) (orders []model.Order) {
-	var err error = nil
-
-	_, isExist := orderService.UserService.FindProfileById(c, userId)
-	if !isExist {
-		c.JSON(http.StatusNotFound, dto.ErrorResponse{Message: "User not found with the given id"})
-		return
-	}
-
-	orders, err = orderService.OrderRepository.FindByUserId(c, userId)
+func (orderService *orderService) ListOrders(c context.Context, userId string) (orders []model.Order, customError exception.ICustomError) {
+	orders, err := orderService.OrderRepository.FindByUserId(c, userId)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		return orders, exception.NewCustomError(exception.INTERNAL_SERVER_ERROR, err.Error())
 	}
 
-	return orders
+	return orders, customError
 }

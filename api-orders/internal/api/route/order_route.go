@@ -4,8 +4,6 @@ import (
 	"api-orders/internal/bootstrap"
 
 	"github.com/gin-gonic/gin"
-
-	_ "api-orders/internal/dto"
 )
 
 // @Router			/orders [post]

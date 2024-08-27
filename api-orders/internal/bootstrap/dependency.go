@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	grpc_internal "api-orders/internal/grpc/grpc-internal"
 	"api-orders/internal/interface/controller"
 	"api-orders/internal/interface/repository"
 	"api-orders/internal/interface/service"
@@ -9,8 +10,8 @@ import (
 	serviceImpl "api-orders/internal/api/service"
 	repositoryImpl "api-orders/internal/repository"
 
-	model "api-orders/internal/model"
-	mongo "api-orders/internal/mongo"
+	"api-orders/internal/model"
+	"api-orders/internal/mongo"
 )
 
 type Repositories struct {
@@ -31,26 +32,31 @@ type Controllers struct {
 }
 
 func InitDependency(db mongo.Database, app *Application) {
-	userRepository := &repositoryImpl.UserRepository{Database: db, Collection: model.CollectionUser}
-	orderRepository := &repositoryImpl.OrderRepository{Database: db, Collection: model.CollectionOrder}
+	paymentGRPCClient, err := grpc_internal.NewPaymentGRPCClient(app.Env.GRPC_PAYMENT_SERVER_ADDRESS)
+	if err != nil {
+		panic(err)
+	}
+
+	userRepository := repositoryImpl.NewUserRepository(db, model.CollectionUser)
+	orderRepository := repositoryImpl.NewOrderRepository(db, model.CollectionOrder)
 
 	repositories := Repositories{
 		UserRepository:  userRepository,
 		OrderRepository: orderRepository,
 	}
 
-	authService := &serviceImpl.AuthService{
-		UserRepository: userRepository,
-		Env:            app.Env,
-	}
-	userService := &serviceImpl.UserService{
-		UserRepository: userRepository,
-	}
-	orderService := &serviceImpl.OrderService{
-		UserService:     userService,
-		OrderRepository: orderRepository,
-		Env:             app.Env,
-	}
+	authService := serviceImpl.NewAuthService(
+		userRepository,
+		app.Env,
+	)
+	userService := serviceImpl.NewUserService(
+		userRepository,
+	)
+	orderService := serviceImpl.NewOrderService(
+		userService,
+		orderRepository,
+		paymentGRPCClient,
+	)
 
 	services := Services{
 		AuthService:  authService,
@@ -59,15 +65,15 @@ func InitDependency(db mongo.Database, app *Application) {
 	}
 
 	controllers := Controllers{
-		AuthController: &controllerImpl.AuthController{
-			AuthService: authService,
-		},
-		UserController: &controllerImpl.UserController{
-			UserService: userService,
-		},
-		OrderController: &controllerImpl.OrderController{
-			OrderService: orderService,
-		},
+		AuthController: controllerImpl.NewAuthController(
+			authService,
+		),
+		UserController: controllerImpl.NewUserController(
+			userService,
+		),
+		OrderController: controllerImpl.NewOrderController(
+			orderService,
+		),
 	}
 
 	app.Repositories = repositories

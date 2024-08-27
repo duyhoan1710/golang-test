@@ -3,21 +3,30 @@ package repository
 import (
 	"context"
 
-	mongo "api-orders/internal/mongo"
+	"api-orders/internal/mongo"
 
-	model "api-orders/internal/model"
+	"api-orders/internal/model"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo/options"
+
+	repositoryInterface "api-orders/internal/interface/repository"
 )
 
-type UserRepository struct {
+type userRepository struct {
 	Database   mongo.Database
 	Collection string
 }
 
-func (ur *UserRepository) Create(c context.Context, user *model.User) error {
+func NewUserRepository(database mongo.Database, collection string) repositoryInterface.IUserRepository {
+	return &userRepository{
+		Database:   database,
+		Collection: collection,
+	}
+}
+
+func (ur *userRepository) Create(c context.Context, user *model.User) error {
 	collection := ur.Database.Collection(ur.Collection)
 
 	_, err := collection.InsertOne(c, user)
@@ -25,7 +34,7 @@ func (ur *UserRepository) Create(c context.Context, user *model.User) error {
 	return err
 }
 
-func (ur *UserRepository) Find(c context.Context) ([]model.User, error) {
+func (ur *userRepository) Find(c context.Context) ([]model.User, error) {
 	collection := ur.Database.Collection(ur.Collection)
 
 	opts := options.Find().SetProjection(bson.D{{Key: "password", Value: 0}})
@@ -45,14 +54,14 @@ func (ur *UserRepository) Find(c context.Context) ([]model.User, error) {
 	return users, err
 }
 
-func (ur *UserRepository) FindByEmail(c context.Context, email string) (model.User, error) {
+func (ur *userRepository) FindByEmail(c context.Context, email string) (model.User, error) {
 	collection := ur.Database.Collection(ur.Collection)
 	var user model.User
 	err := collection.FindOne(c, bson.M{"email": email}).Decode(&user)
 	return user, err
 }
 
-func (ur *UserRepository) FindById(c context.Context, id string) (model.User, error) {
+func (ur *userRepository) FindById(c context.Context, id string) (model.User, error) {
 	collection := ur.Database.Collection(ur.Collection)
 
 	var user model.User

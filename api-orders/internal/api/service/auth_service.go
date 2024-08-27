@@ -1,60 +1,63 @@
 package service
 
 import (
-	"net/http"
+	"context"
 
-	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"golang.org/x/crypto/bcrypt"
 
 	"api-orders/config"
-	"api-orders/internal/dto"
-	model "api-orders/internal/model"
-	"api-orders/internal/repository"
+	"api-orders/internal/exception"
+	"api-orders/internal/model"
 	"api-orders/internal/util"
+
+	repositoryInterface "api-orders/internal/interface/repository"
+	serviceInterface "api-orders/internal/interface/service"
 )
 
-type AuthService struct {
-	UserRepository *repository.UserRepository
+type authService struct {
+	UserRepository repositoryInterface.IUserRepository
 	Env            *config.Env
 }
 
-func (authService *AuthService) Login(c *gin.Context, email string, password string) (accessToken string, refreshToken string) {
-	user, err := authService.UserRepository.FindByEmail(c, email)
+func NewAuthService(userRepository repositoryInterface.IUserRepository, env *config.Env) serviceInterface.IAuthService {
+	return &authService{
+		UserRepository: userRepository,
+		Env:            env,
+	}
+}
 
+func (authService *authService) Login(c context.Context, email string, password string) (accessToken string, refreshToken string, customError exception.ICustomError) {
+	user, err := authService.UserRepository.FindByEmail(c, email)
 	if err != nil {
-		c.JSON(http.StatusNotFound, dto.ErrorResponse{Message: "User not found with the given email"})
-		return
+		return accessToken, refreshToken, exception.NewCustomError(exception.USER_NOT_FOUND)
 	}
 
 	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)) != nil {
-		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Message: "Invalid credentials"})
-		return
+		return accessToken, refreshToken, exception.NewCustomError(exception.PASSWORD_INCORRECT)
 	}
 
 	accessToken, err = util.CreateAccessToken(&user, authService.Env.AccessTokenSecret, authService.Env.AccessTokenExpiryHour)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		return accessToken, refreshToken, exception.NewCustomError(exception.INTERNAL_SERVER_ERROR, err.Error())
 	}
 
 	refreshToken, err = util.CreateRefreshToken(&user, authService.Env.RefreshTokenSecret, authService.Env.RefreshTokenExpiryHour)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		return accessToken, refreshToken, exception.NewCustomError(exception.INTERNAL_SERVER_ERROR, err.Error())
 	}
 
-	return accessToken, refreshToken
+	return accessToken, refreshToken, customError
 }
 
-func (authService *AuthService) Signup(c *gin.Context, name string, email string, password string) (accessToken string, refreshToken string) {
+func (authService *authService) Signup(c context.Context, name string, email string, password string) (accessToken string, refreshToken string, customError exception.ICustomError) {
 	var err error = nil
 
 	_, err = authService.UserRepository.FindByEmail(c, email)
 
 	if err == nil {
-		c.JSON(http.StatusConflict, dto.ErrorResponse{Message: "User already exists with the given email"})
-		return
+		return accessToken, refreshToken, exception.NewCustomError(exception.USER_ALREADY_EXISTS)
+
 	}
 
 	encryptedPassword, err := bcrypt.GenerateFromPassword(
@@ -62,8 +65,7 @@ func (authService *AuthService) Signup(c *gin.Context, name string, email string
 		bcrypt.DefaultCost,
 	)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		return accessToken, refreshToken, exception.NewCustomError(exception.INTERNAL_SERVER_ERROR, err.Error())
 	}
 
 	user := model.User{
@@ -75,50 +77,43 @@ func (authService *AuthService) Signup(c *gin.Context, name string, email string
 
 	err = authService.UserRepository.Create(c, &user)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		return accessToken, refreshToken, exception.NewCustomError(exception.INTERNAL_SERVER_ERROR, err.Error())
 	}
 
 	accessToken, err = util.CreateAccessToken(&user, authService.Env.AccessTokenSecret, authService.Env.AccessTokenExpiryHour)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		return accessToken, refreshToken, exception.NewCustomError(exception.INTERNAL_SERVER_ERROR, err.Error())
 	}
 
 	refreshToken, err = util.CreateRefreshToken(&user, authService.Env.RefreshTokenSecret, authService.Env.RefreshTokenExpiryHour)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		return accessToken, refreshToken, exception.NewCustomError(exception.INTERNAL_SERVER_ERROR, err.Error())
 	}
 
-	return accessToken, refreshToken
+	return accessToken, refreshToken, customError
 }
 
-func (authService *AuthService) RefreshToken(c *gin.Context, currentRefreshToken string) (accessToken string, refreshToken string) {
+func (authService *authService) RefreshToken(c context.Context, currentRefreshToken string) (accessToken string, refreshToken string, customError exception.ICustomError) {
 
 	id, err := util.ExtractIDFromToken(currentRefreshToken, authService.Env.RefreshTokenSecret)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Message: "User not found"})
-		return
+		return accessToken, refreshToken, exception.NewCustomError(exception.EXTRACT_TOKEN_ERROR)
 	}
 
 	user, err := authService.UserRepository.FindById(c, id)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, dto.ErrorResponse{Message: "User not found"})
-		return
+		return accessToken, refreshToken, exception.NewCustomError(exception.USER_NOT_FOUND)
 	}
 
 	accessToken, err = util.CreateAccessToken(&user, authService.Env.AccessTokenSecret, authService.Env.AccessTokenExpiryHour)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		return accessToken, refreshToken, exception.NewCustomError(exception.INTERNAL_SERVER_ERROR, err.Error())
 	}
 
 	refreshToken, err = util.CreateRefreshToken(&user, authService.Env.RefreshTokenSecret, authService.Env.RefreshTokenExpiryHour)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		return accessToken, refreshToken, exception.NewCustomError(exception.INTERNAL_SERVER_ERROR, err.Error())
 	}
 
-	return accessToken, refreshToken
+	return accessToken, refreshToken, customError
 }

@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	config "api-orders/config"
-	mongo "api-orders/internal/mongo"
+	"api-orders/config"
+	"api-orders/internal/mongo"
 )
 
 func NewMongoDatabase(env *config.Env) mongo.Client {

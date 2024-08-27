@@ -1,7 +1,7 @@
 package repository
 
 import (
-	model "api-orders/internal/model"
+	"api-orders/internal/model"
 	"context"
 )
 

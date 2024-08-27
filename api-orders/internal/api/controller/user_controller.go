@@ -3,23 +3,30 @@ package controller
 import (
 	"net/http"
 
-	"api-orders/internal/api/service"
-
 	"github.com/gin-gonic/gin"
+
+	controllerInterface "api-orders/internal/interface/controller"
+	serviceInterface "api-orders/internal/interface/service"
 )
 
-type IUserController interface {
-	FindProfileById(c *gin.Context)
+type userController struct {
+	UserService serviceInterface.IUserService
 }
 
-type UserController struct {
-	UserService *service.UserService
+func NewUserController(userService serviceInterface.IUserService) controllerInterface.IUserController {
+	return &userController{
+		UserService: userService,
+	}
 }
 
-func (userController *UserController) FindProfileById(c *gin.Context) {
+func (userController *userController) FindProfileById(c *gin.Context) {
 	userId := c.GetString("x-user-id")
 
-	profile, _ := userController.UserService.FindProfileById(c, userId)
+	profile, customError := userController.UserService.FindProfileById(c, userId)
+	if customError != nil {
+		c.JSON(customError.GetStatusCode(), customError)
+		return
+	}
 
 	c.JSON(http.StatusOK, profile)
 }

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	model "api-orders/internal/model"
+	"api-orders/internal/model"
 
 	jwt "github.com/golang-jwt/jwt/v4"
 )

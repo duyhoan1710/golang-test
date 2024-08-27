@@ -1,8 +1,8 @@
 package bootstrap
 
 import (
-	config "api-orders/config"
-	mongo "api-orders/internal/mongo"
+	"api-orders/config"
+	"api-orders/internal/mongo"
 )
 
 type Application struct {

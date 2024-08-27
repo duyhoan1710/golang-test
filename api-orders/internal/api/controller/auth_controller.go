@@ -5,24 +5,37 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"api-orders/internal/api/service"
 	"api-orders/internal/dto"
+	"api-orders/internal/exception"
+
+	controllerInterface "api-orders/internal/interface/controller"
+	serviceInterface "api-orders/internal/interface/service"
 )
 
-type AuthController struct {
-	AuthService *service.AuthService
+type authController struct {
+	AuthService serviceInterface.IAuthService
 }
 
-func (authController *AuthController) Login(c *gin.Context) {
+func NewAuthController(authService serviceInterface.IAuthService) controllerInterface.IAuthController {
+	return &authController{
+		AuthService: authService,
+	}
+}
+
+func (authController *authController) Login(c *gin.Context) {
 	var request dto.LoginRequest
 
 	err := c.ShouldBind(&request)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Message: err.Error()})
+		c.JSON(http.StatusBadRequest, exception.NewCustomError(exception.VALIDATION_ERROR, err.Error()))
 		return
 	}
 
-	accessToken, refreshToken := authController.AuthService.Login(c, request.Email, request.Password)
+	accessToken, refreshToken, customError := authController.AuthService.Login(c, request.Email, request.Password)
+	if customError != nil {
+		c.JSON(customError.GetStatusCode(), customError)
+		return
+	}
 
 	loginResponse := dto.LoginResponse{
 		AccessToken:  accessToken,
@@ -32,16 +45,20 @@ func (authController *AuthController) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, loginResponse)
 }
 
-func (authController *AuthController) Signup(c *gin.Context) {
+func (authController *authController) Signup(c *gin.Context) {
 	var request dto.SignupRequest
 
 	err := c.ShouldBind(&request)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Message: err.Error()})
+		c.JSON(http.StatusBadRequest, exception.NewCustomError(exception.VALIDATION_ERROR, err.Error()))
 		return
 	}
 
-	accessToken, refreshToken := authController.AuthService.Signup(c, request.Name, request.Email, request.Password)
+	accessToken, refreshToken, customError := authController.AuthService.Signup(c, request.Name, request.Email, request.Password)
+	if customError != nil {
+		c.JSON(customError.GetStatusCode(), customError)
+		return
+	}
 
 	signupResponse := dto.LoginResponse{
 		AccessToken:  accessToken,
@@ -51,16 +68,20 @@ func (authController *AuthController) Signup(c *gin.Context) {
 	c.JSON(http.StatusOK, signupResponse)
 }
 
-func (authController *AuthController) RefreshToken(c *gin.Context) {
+func (authController *authController) RefreshToken(c *gin.Context) {
 	var request dto.RefreshTokenRequest
 
 	err := c.ShouldBind(&request)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, dto.ErrorResponse{Message: err.Error()})
+		c.JSON(http.StatusBadRequest, exception.NewCustomError(exception.VALIDATION_ERROR, err.Error()))
 		return
 	}
 
-	accessToken, refreshToken := authController.AuthService.RefreshToken(c, request.RefreshToken)
+	accessToken, refreshToken, customError := authController.AuthService.RefreshToken(c, request.RefreshToken)
+	if customError != nil {
+		c.JSON(customError.GetStatusCode(), customError)
+		return
+	}
 
 	refreshTokenResponse := dto.RefreshTokenResponse{
 		AccessToken:  accessToken,

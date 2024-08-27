@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
-
 	_ "api-orders/docs"
-	route "api-orders/internal/api/route"
+	"api-orders/internal/api/route"
 	"api-orders/internal/bootstrap"
+
+	"github.com/gin-gonic/gin"
 )
 
 // @title Sotatek Test Api Orders

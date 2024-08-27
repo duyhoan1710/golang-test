@@ -1,15 +1,14 @@
 package service
 
 import (
-	model "api-orders/internal/model"
-
-	"github.com/gin-gonic/gin"
+	"api-orders/internal/exception"
+	"api-orders/internal/model"
+	"context"
 )
 
 type IOrderService interface {
-	CreateOrder(c *gin.Context, userId string)
-	ListOrders(c *gin.Context, userId string) (orders []model.Order)
-	FindOrderById(c *gin.Context, userId string, orderId string) (order model.Order)
-	ChangeOrderToDelivered(c *gin.Context, order *model.Order) error
-	CancelOrder(c *gin.Context, userId string, orderId string)
+	CreateOrder(c context.Context, userId string) exception.ICustomError
+	ListOrders(c context.Context, userId string) ([]model.Order, exception.ICustomError)
+	FindOrderById(c context.Context, userId string, orderId string) (model.Order, exception.ICustomError)
+	CancelOrder(c context.Context, userId string, orderId string) exception.ICustomError
 }

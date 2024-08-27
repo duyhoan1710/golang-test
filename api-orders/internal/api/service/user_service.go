@@ -1,26 +1,32 @@
 package service
 
 import (
-	"net/http"
+	"context"
 
-	"github.com/gin-gonic/gin"
+	"api-orders/internal/model"
 
-	"api-orders/internal/dto"
-	model "api-orders/internal/model"
-	"api-orders/internal/repository"
+	repositoryInterface "api-orders/internal/interface/repository"
+	serviceInterface "api-orders/internal/interface/service"
+
+	exception "api-orders/internal/exception"
 )
 
-type UserService struct {
-	UserRepository *repository.UserRepository
+type userService struct {
+	UserRepository repositoryInterface.IUserRepository
 }
 
-func (userService *UserService) FindProfileById(c *gin.Context, userId string) (user model.User, isExist bool) {
+func NewUserService(userRepository repositoryInterface.IUserRepository) serviceInterface.IUserService {
+	return &userService{
+		UserRepository: userRepository,
+	}
+}
+
+func (userService *userService) FindProfileById(c context.Context, userId string) (user model.User, customError exception.ICustomError) {
 	user, err := userService.UserRepository.FindById(c, userId)
 
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, dto.ErrorResponse{Message: err.Error()})
-		return
+		customError = exception.NewCustomError(exception.INTERNAL_SERVER_ERROR)
 	}
 
-	return user, true
+	return user, customError
 }

@@ -11,16 +11,20 @@ import (
 
 func Setup(app *bootstrap.Application, gin *gin.Engine) {
 	publicRouter := gin.Group("")
+	protectedRouter := gin.Group("")
+
+	publicRouter.Use(middleware.InternalServerErrorHandler)
+	protectedRouter.Use(middleware.InternalServerErrorHandler)
+
 	// All Public APIs
 	LoginRouter(app, publicRouter)
 	SignupRouter(app, publicRouter)
 	RefreshTokenRouter(app, publicRouter)
-	// Swagger Endpoint
 	publicRouter.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	protectedRouter := gin.Group("")
 	// Middleware to verify AccessToken
 	protectedRouter.Use(middleware.JwtAuthMiddleware(app.Env.AccessTokenSecret))
+
 	// All Private APIs
 	FindProfileRouter(app, protectedRouter)
 

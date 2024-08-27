@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-option go_package = "api-orders/internal/grpc-gateway/protogen/golang";
+option go_package = "api-orders/internal/grpc/protogen/golang";
 
 message PaymentRequest {
   string orderId = 1 [ json_name = "_id" ];

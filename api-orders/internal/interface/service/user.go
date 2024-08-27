@@ -1,11 +1,11 @@
 package service
 
 import (
-	model "api-orders/internal/model"
-
-	"github.com/gin-gonic/gin"
+	"api-orders/internal/exception"
+	"api-orders/internal/model"
+	"context"
 )
 
 type IUserService interface {
-	FindProfileById(c *gin.Context, userId string) (user model.User, isExist bool)
+	FindProfileById(c context.Context, userId string) (user model.User, err exception.ICustomError)
 }

@@ -1,0 +1,8 @@
+/api-orders/.env
+/api-payments/.env
+
+.vscode
+.DS_Store
+bin/
+/.idea
+.idea
